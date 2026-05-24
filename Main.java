@@ -40,14 +40,14 @@ public class Main implements KeyListener, MouseListener, MouseMotionListener, Mo
         fb = new FrameBuffer(WIDTH, HEIGHT);
 
         Texture[] textures = {
-            Texture.loadFromFile("textures/StarSparrow_Blue.png"),
-            Texture.loadFromFile("textures/StarSparrow_Red.png"),
-            Texture.loadFromFile("textures/StarSparrow_Green.png"),
-            Texture.loadFromFile("textures/StarSparrow_Orange.png"),
-            Texture.loadFromFile("textures/StarSparrow_Purple.png"),
-            Texture.loadFromFile("textures/StarSparrow_Yellow.png"),
+            Texture.loadFromFile("src/textures/StarSparrow_Blue.png"),
+            Texture.loadFromFile("src/textures/StarSparrow_Red.png"),
+            Texture.loadFromFile("src/textures/StarSparrow_Green.png"),
+            Texture.loadFromFile("src/textures/StarSparrow_Orange.png"),
+            Texture.loadFromFile("src/textures/StarSparrow_Purple.png"),
+            Texture.loadFromFile("src/textures/StarSparrow_Yellow.png"),
         };
-        Mesh shipMesh = new Mesh("models/ship2.csv");
+        Mesh shipMesh = new Mesh("src/models/ship2.csv");
         for (int i = 0; i < NUM_SHIPS; i++) {
             shipGroup[i] = new Actor(shipMesh.deepCopy());
             shipGroup[i].scale[0] = 1;
@@ -61,7 +61,7 @@ public class Main implements KeyListener, MouseListener, MouseMotionListener, Mo
             myWorld.actors.add(shipGroup[i]);
         }
 
-        cubeActor = new Actor(new Mesh("models/cube3.csv"));
+        cubeActor = new Actor(new Mesh("src/models/cube3.csv"));
         cubeActor.location[0] = WORLD_CENTER[0];
         cubeActor.location[1] = WORLD_CENTER[1];
         cubeActor.location[2] = WORLD_CENTER[2];
