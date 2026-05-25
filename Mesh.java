@@ -83,7 +83,7 @@ public class Mesh {
     public void Render(FrameBuffer fb, Texture texture,
                        Texture normalMap, Texture metallicMap, Texture roughnessMap,
                        float lx, float ly, float lz) {
-        faces.parallelStream().forEach(f -> f.Render(fb, texture, normalMap, metallicMap, roughnessMap, lx, ly, lz));
+        faces.forEach(f -> f.Render(fb, texture, normalMap, metallicMap, roughnessMap, lx, ly, lz));
     }
 
     private void computePlanarUVs() {
