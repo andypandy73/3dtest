@@ -8,6 +8,9 @@ public class Vertex {
     // Clip-space w before perspective divide, needed for perspective-correct UV
     double wClip = 1.0;
 
+    // Model-space tangent (set by Mesh UV methods)
+    double txm = 0, tym = 0, tzm = 1;
+
     // View-space position saved before projection overwrites x/y/z
     double xv, yv, zv;
 

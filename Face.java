@@ -8,7 +8,8 @@ public class Face {
     double[][] normals     = new double[3][3];
     double[]   brightness  = new double[3];
 
-    // Per-face view direction toward camera (set each frame by Mesh)
+    // View-space tangents per corner and per-face view direction (set each frame by Mesh)
+    float[][] tangents = new float[3][3];
     float fvx, fvy, fvz;
 
     // ── Lighting constants ───────────────────────────────────────────────────
@@ -22,7 +23,7 @@ public class Face {
         v0 = a; v1 = b; v2 = c;
     }
 
-    void Render(FrameBuffer fb, Texture texture, float lx, float ly, float lz) {
+    void Render(FrameBuffer fb, Texture texture, Texture normalMap, float lx, float ly, float lz) {
         int[]   buffer = fb.pixels;
         float[] zArr   = fb.depth;
         int bufWidth  = fb.width;
@@ -56,6 +57,11 @@ public class Face {
         float n0x = (float)normals[0][0], n0y = (float)normals[0][1], n0z = (float)normals[0][2];
         float n1x = (float)normals[1][0], n1y = (float)normals[1][1], n1z = (float)normals[1][2];
         float n2x = (float)normals[2][0], n2y = (float)normals[2][1], n2z = (float)normals[2][2];
+
+        // Per-corner tangents
+        float t0x = tangents[0][0], t0y = tangents[0][1], t0z = tangents[0][2];
+        float t1x = tangents[1][0], t1y = tangents[1][1], t1z = tangents[1][2];
+        float t2x = tangents[2][0], t2y = tangents[2][1], t2z = tangents[2][2];
 
         // UV seam correction
         double tu0 = v0.u, tu1 = v1.u, tu2 = v2.u;
@@ -103,12 +109,31 @@ public class Face {
                             float tv = (rowCross1 * tv0w + rowCross2 * tv1w + rowCross0 * tv2w) * invW;
                             int texColor = texture.sample(tu, tv);
 
-                            // Interpolate and normalise per-pixel normal (Phong shading)
+                            // Interpolate geometry normal and tangent
                             float nx = (rowCross1*n0x + rowCross2*n1x + rowCross0*n2x) * invTotal;
                             float ny = (rowCross1*n0y + rowCross2*n1y + rowCross0*n2y) * invTotal;
                             float nz = (rowCross1*n0z + rowCross2*n1z + rowCross0*n2z) * invTotal;
                             float nlen = (float)Math.sqrt(nx*nx + ny*ny + nz*nz);
                             if (nlen > 1e-6f) { nx /= nlen; ny /= nlen; nz /= nlen; }
+
+                            if (normalMap != null) {
+                                float tax = (rowCross1*t0x + rowCross2*t1x + rowCross0*t2x) * invTotal;
+                                float tay = (rowCross1*t0y + rowCross2*t1y + rowCross0*t2y) * invTotal;
+                                float taz = (rowCross1*t0z + rowCross2*t1z + rowCross0*t2z) * invTotal;
+                                float tlen = (float)Math.sqrt(tax*tax + tay*tay + taz*taz);
+                                if (tlen > 1e-6f) { tax /= tlen; tay /= tlen; taz /= tlen; }
+                                int nc = normalMap.sample(tu, tv);
+                                float tnx = ((nc >> 16) & 0xFF) / 127.5f - 1.0f;
+                                float tny = ((nc >>  8) & 0xFF) / 127.5f - 1.0f;
+                                float tnz = ( nc        & 0xFF) / 127.5f - 1.0f;
+                                // Bitangent = cross(n, t), then transform tangent-space normal via TBN
+                                float bx = ny*taz - nz*tay, by = nz*tax - nx*taz, bz = nx*tay - ny*tax;
+                                float wnx = tnx*tax + tny*bx + tnz*nx;
+                                float wny = tnx*tay + tny*by + tnz*ny;
+                                float wnz = tnx*taz + tny*bz + tnz*nz;
+                                float wlen = (float)Math.sqrt(wnx*wnx + wny*wny + wnz*wnz);
+                                if (wlen > 1e-6f) { nx = wnx/wlen; ny = wny/wlen; nz = wnz/wlen; }
+                            }
 
                             // Lambert diffuse
                             float nDotL = max(0f, nx*lx + ny*ly + nz*lz);
