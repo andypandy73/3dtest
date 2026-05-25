@@ -8,6 +8,12 @@ public class Vertex {
     // Clip-space w before perspective divide, needed for perspective-correct UV
     double wClip = 1.0;
 
+    // Model-space tangent (set by Mesh UV methods)
+    double txm = 0, tym = 0, tzm = 1;
+
+    // View-space position saved before projection overwrites x/y/z
+    double xv, yv, zv;
+
     Vertex() {}
 
     Vertex(double x, double y, double z) {
@@ -21,7 +27,8 @@ public class Vertex {
         double oy = m[0][1]*x_model + m[1][1]*y_model + m[2][1]*z_model + m[3][1];
         double oz = m[0][2]*x_model + m[1][2]*y_model + m[2][2]*z_model + m[3][2];
         double ow = m[0][3]*x_model + m[1][3]*y_model + m[2][3]*z_model + m[3][3];
-        x = ox / ow; y = oy / ow; z = oz / ow;
+        xv = ox / ow; yv = oy / ow; zv = oz / ow;
+        x = xv; y = yv; z = zv;
     }
 
     void applyProjection(double[][] m) {

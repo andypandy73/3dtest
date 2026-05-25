@@ -48,7 +48,13 @@ public class World {
             Mesh m = a.model;
             m.applyModelView(matMV, LIGHT_DIR);
             m.applyProjection(projection);
-            m.Render(fb, a.texture);
+            // Transform light direction into the same space as the transformed normals
+            double[] ld = LIGHT_DIR;
+            double ltx = camera[0][0]*ld[0] + camera[1][0]*ld[1] + camera[2][0]*ld[2];
+            double lty = camera[0][1]*ld[0] + camera[1][1]*ld[1] + camera[2][1]*ld[2];
+            double ltz = camera[0][2]*ld[0] + camera[1][2]*ld[1] + camera[2][2]*ld[2];
+            m.Render(fb, a.texture, a.normalMap, a.metallicMap, a.roughnessMap,
+                     (float)ltx, (float)lty, (float)ltz);
         });
     }
 }

@@ -40,6 +40,12 @@ public class Texture {
         }
     }
 
+    static Texture solidGrey(int v) {
+        Texture t = new Texture(1, 1);
+        t.pixels[0] = (v << 16) | (v << 8) | v;
+        return t;
+    }
+
     static Texture generateFur() {
         int W = 512, H = 512;
         Texture tex = new Texture(W, H);
