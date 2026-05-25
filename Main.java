@@ -7,7 +7,7 @@ import java.awt.image.BufferStrategy;
 public class Main implements KeyListener, MouseListener, MouseMotionListener, MouseWheelListener {
 
     private static World myWorld;
-    private static final int NUM_SHIPS = 5;
+    private static final int NUM_SHIPS = 50;
     private static Actor[]   shipGroup  = new Actor[NUM_SHIPS];
     private static double[]  shipAngle  = new double[NUM_SHIPS];
     private static double[]  shipRadius = new double[NUM_SHIPS];
@@ -26,6 +26,11 @@ public class Main implements KeyListener, MouseListener, MouseMotionListener, Mo
 
     private static Actor cubeActor;
 
+    // ── Mode switch ──────────────────────────────────────────────────────────
+    private static final boolean SINGLE_SHIP_MODE = true; // true = single rotating ship, false = fleet orbit
+    private static final int    VIEWER_TEXTURE    = 0;    // 0=Blue 1=Red 2=Green 3=Orange 4=Purple 5=Yellow
+    private static double viewerDist = 15.0; // camera distance in single-ship mode
+
     private static long triAccum = 0;
     private static long lastPrintNanos = 0;
     private static long lastFrameNanos = 0;
@@ -34,9 +39,6 @@ public class Main implements KeyListener, MouseListener, MouseMotionListener, Mo
 
     public static void main(String[] args) {
         myWorld = new World();
-        myWorld.cameraLocation = new double[]{0, 30, -30};
-        myWorld.cameraTarget   = new double[]{0,  0,  20};
-        myWorld.cameraRotation = new double[]{0,  1,   0};
 
         fb = new FrameBuffer(WIDTH, HEIGHT);
 
@@ -53,20 +55,37 @@ public class Main implements KeyListener, MouseListener, MouseMotionListener, Mo
         Texture shipRoughness = Texture.loadFromFile("src/textures/StarSparrow_Roughness.png");
 
         Mesh shipMesh = new Mesh("src/models/ship2.csv");
-        for (int i = 0; i < NUM_SHIPS; i++) {
-            shipGroup[i] = new Actor(shipMesh.deepCopy());
-            shipGroup[i].scale[0] = 1;
-            shipGroup[i].scale[1] = 1;
-            shipGroup[i].scale[2] = 1;
-            shipGroup[i].texture      = textures[i % textures.length];
-            shipGroup[i].normalMap    = shipNormal;
-            shipGroup[i].metallicMap  = shipMetallic;
-            shipGroup[i].roughnessMap = shipRoughness;
-            shipRadius[i] = 15 + Math.random() * 12;
-            shipSpeed[i]  = (0.425 + Math.random() * 0.10) * (Math.random() < 0.5 ? 1 : -1);
-            shipAngle[i]  = i * (360.0 / NUM_SHIPS) + Math.random() * 20;
-            shipTilt[i]   = (Math.random() - 0.5) * 60;
-            myWorld.actors.add(shipGroup[i]);
+
+        if (SINGLE_SHIP_MODE) {
+            // Single ship viewer — sits at origin, mouse rotates it, scroll zooms
+            Actor viewer = new Actor(shipMesh.deepCopy());
+            viewer.texture      = textures[VIEWER_TEXTURE % textures.length];
+            viewer.normalMap    = shipNormal;
+            viewer.metallicMap  = shipMetallic;
+            viewer.roughnessMap = shipRoughness;
+            myWorld.actors.add(viewer);
+            myWorld.cameraLocation = new double[]{0, 3, -viewerDist};
+            myWorld.cameraTarget   = new double[]{0, 0, 0};
+            myWorld.cameraRotation = new double[]{0, 1, 0};
+        } else {
+            myWorld.cameraLocation = new double[]{0, 30, -30};
+            myWorld.cameraTarget   = new double[]{0,  0,  20};
+            myWorld.cameraRotation = new double[]{0,  1,   0};
+            for (int i = 0; i < NUM_SHIPS; i++) {
+                shipGroup[i] = new Actor(shipMesh.deepCopy());
+                shipGroup[i].scale[0] = 1;
+                shipGroup[i].scale[1] = 1;
+                shipGroup[i].scale[2] = 1;
+                shipGroup[i].texture      = textures[i % textures.length];
+                shipGroup[i].normalMap    = shipNormal;
+                shipGroup[i].metallicMap  = shipMetallic;
+                shipGroup[i].roughnessMap = shipRoughness;
+                shipRadius[i] = 15 + Math.random() * 12;
+                shipSpeed[i]  = (0.425 + Math.random() * 0.10) * (Math.random() < 0.5 ? 1 : -1);
+                shipAngle[i]  = i * (360.0 / NUM_SHIPS) + Math.random() * 20;
+                shipTilt[i]   = (Math.random() - 0.5) * 60;
+                myWorld.actors.add(shipGroup[i]);
+            }
         }
 
         cubeActor = new Actor(new Mesh("src/models/cube3.csv"));
@@ -75,9 +94,9 @@ public class Main implements KeyListener, MouseListener, MouseMotionListener, Mo
         cubeActor.location[2] = WORLD_CENTER[2];
         cubeActor.scale[0] = 8; cubeActor.scale[1] = 8; cubeActor.scale[2] = 8;
         cubeActor.texture      = Texture.generateGiftWrap();
-        cubeActor.metallicMap  = Texture.solidGrey(220); // ~0.86 metallic
-        cubeActor.roughnessMap = Texture.solidGrey(35);  // ~0.14 roughness — shiny
-        myWorld.actors.add(cubeActor);
+        cubeActor.metallicMap  = Texture.solidGrey(220);
+        cubeActor.roughnessMap = Texture.solidGrey(35);
+        // myWorld.actors.add(cubeActor);
 
         canvas = new Canvas();
         canvas.setBackground(Color.BLACK);
@@ -128,7 +147,7 @@ public class Main implements KeyListener, MouseListener, MouseMotionListener, Mo
         final double deltaTime = lastFrameNanos == 0 ? 0 : (frameStart - lastFrameNanos) / 1_000_000_000.0;
         lastFrameNanos = frameStart;
 
-        for (int i = 0; i < NUM_SHIPS; i++) {
+        if (!SINGLE_SHIP_MODE) for (int i = 0; i < NUM_SHIPS; i++) {
             shipAngle[i] += shipSpeed[i] * deltaTime * 60;
             double a     = Math.toRadians(shipAngle[i]);
             double aPrev = a - Math.toRadians(shipSpeed[i]);
@@ -306,6 +325,13 @@ public class Main implements KeyListener, MouseListener, MouseMotionListener, Mo
         lastMouseX = e.getX();
         lastMouseY = e.getY();
 
+        if (SINGLE_SHIP_MODE) {
+            Actor ship = myWorld.actors.get(0);
+            ship.rotation[1] += dx * MOUSE_SENSITIVITY * (180.0 / Math.PI);
+            ship.rotation[0] -= dy * MOUSE_SENSITIVITY * (180.0 / Math.PI);
+            return;
+        }
+
         double yaw = -dx * MOUSE_SENSITIVITY;
         double tdx = myWorld.cameraTarget[0] - myWorld.cameraLocation[0];
         double tdz = myWorld.cameraTarget[2] - myWorld.cameraLocation[2];
@@ -334,6 +360,14 @@ public class Main implements KeyListener, MouseListener, MouseMotionListener, Mo
 
     public void mouseWheelMoved(MouseWheelEvent e) {
         double scroll = e.getWheelRotation() * SCROLL_SPEED;
+        if (SINGLE_SHIP_MODE) {
+            viewerDist = Math.max(3.0, viewerDist + scroll);
+            double[] fwd = Utils.normalize(Utils.subtract(myWorld.cameraTarget, myWorld.cameraLocation));
+            myWorld.cameraLocation[0] = myWorld.cameraTarget[0] - fwd[0] * viewerDist;
+            myWorld.cameraLocation[1] = myWorld.cameraTarget[1] - fwd[1] * viewerDist;
+            myWorld.cameraLocation[2] = myWorld.cameraTarget[2] - fwd[2] * viewerDist;
+            return;
+        }
         double[] fwd = Utils.normalize(Utils.subtract(myWorld.cameraTarget, myWorld.cameraLocation));
         myWorld.cameraLocation[0] += fwd[0] * scroll;
         myWorld.cameraLocation[1] += fwd[1] * scroll;
