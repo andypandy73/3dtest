@@ -50,19 +50,12 @@ public class Main implements KeyListener, MouseListener, MouseMotionListener, Mo
             Texture.loadFromFile("src/textures/StarSparrow_Purple.png"),
             Texture.loadFromFile("src/textures/StarSparrow_Yellow.png"),
         };
-        Texture shipNormal    = Texture.loadFromFile("src/textures/StarSparrow_Normal.png");
-        Texture shipMetallic  = Texture.loadFromFile("src/textures/StarSparrow_Metallic.png");
-        Texture shipRoughness = Texture.loadFromFile("src/textures/StarSparrow_Roughness.png");
-
         Mesh shipMesh = new Mesh("src/models/ship2.csv");
 
         if (SINGLE_SHIP_MODE) {
             // Single ship viewer — sits at origin, mouse rotates it, scroll zooms
             Actor viewer = new Actor(shipMesh.deepCopy());
-            viewer.texture      = textures[VIEWER_TEXTURE % textures.length];
-            viewer.normalMap    = shipNormal;
-            viewer.metallicMap  = shipMetallic;
-            viewer.roughnessMap = shipRoughness;
+            viewer.texture = textures[VIEWER_TEXTURE % textures.length];
             myWorld.actors.add(viewer);
             myWorld.cameraLocation = new double[]{0, 3, -viewerDist};
             myWorld.cameraTarget   = new double[]{0, 0, 0};
@@ -76,10 +69,7 @@ public class Main implements KeyListener, MouseListener, MouseMotionListener, Mo
                 shipGroup[i].scale[0] = 1;
                 shipGroup[i].scale[1] = 1;
                 shipGroup[i].scale[2] = 1;
-                shipGroup[i].texture      = textures[i % textures.length];
-                shipGroup[i].normalMap    = shipNormal;
-                shipGroup[i].metallicMap  = shipMetallic;
-                shipGroup[i].roughnessMap = shipRoughness;
+                shipGroup[i].texture = textures[i % textures.length];
                 shipRadius[i] = 15 + Math.random() * 12;
                 shipSpeed[i]  = (0.425 + Math.random() * 0.10) * (Math.random() < 0.5 ? 1 : -1);
                 shipAngle[i]  = i * (360.0 / NUM_SHIPS) + Math.random() * 20;
@@ -93,9 +83,7 @@ public class Main implements KeyListener, MouseListener, MouseMotionListener, Mo
         cubeActor.location[1] = WORLD_CENTER[1];
         cubeActor.location[2] = WORLD_CENTER[2];
         cubeActor.scale[0] = 8; cubeActor.scale[1] = 8; cubeActor.scale[2] = 8;
-        cubeActor.texture      = Texture.generateGiftWrap();
-        cubeActor.metallicMap  = Texture.solidGrey(220);
-        cubeActor.roughnessMap = Texture.solidGrey(35);
+        cubeActor.texture = Texture.generateGiftWrap();
         // myWorld.actors.add(cubeActor);
 
         canvas = new Canvas();
