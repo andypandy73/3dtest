@@ -52,7 +52,7 @@ public class World {
             double ltx = camera[0][0]*ld[0] + camera[1][0]*ld[1] + camera[2][0]*ld[2];
             double lty = camera[0][1]*ld[0] + camera[1][1]*ld[1] + camera[2][1]*ld[2];
             double ltz = camera[0][2]*ld[0] + camera[1][2]*ld[1] + camera[2][2]*ld[2];
-            m.Render(fb, a.texture, a.normalMap, (float)ltx, (float)lty, (float)ltz);
+            m.Render(fb, a.texture, (float)ltx, (float)lty, (float)ltz);
         });
     }
 }

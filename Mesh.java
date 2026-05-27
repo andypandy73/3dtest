@@ -80,8 +80,8 @@ public class Mesh {
         }
     }
 
-    public void Render(FrameBuffer fb, Texture texture, Texture normalMap, float lx, float ly, float lz) {
-        faces.parallelStream().forEach(f -> f.Render(fb, texture, normalMap, lx, ly, lz));
+    public void Render(FrameBuffer fb, Texture texture, float lx, float ly, float lz) {
+        faces.parallelStream().forEach(f -> f.Render(fb, texture, lx, ly, lz));
     }
 
     private void computePlanarUVs() {
@@ -95,7 +95,6 @@ public class Mesh {
         for (Vertex vtx : vertexList) {
             vtx.u = vtx.u_model = (vtx.x_model - minX) / rangeX;
             vtx.v = vtx.v_model = (vtx.y_model - minY) / rangeY;
-            vtx.txm = 1; vtx.tym = 0; vtx.tzm = 0;
         }
     }
 
@@ -108,15 +107,12 @@ public class Mesh {
             if (ax >= ay && ax >= az) {
                 vtx.u = vtx.u_model = (nz / ax + 1) / 2;
                 vtx.v = vtx.v_model = (ny / ax + 1) / 2;
-                vtx.txm = 0; vtx.tym = 0; vtx.tzm = Math.signum(nx);
             } else if (ay >= ax && ay >= az) {
                 vtx.u = vtx.u_model = (nx / ay + 1) / 2;
                 vtx.v = vtx.v_model = (nz / ay + 1) / 2;
-                vtx.txm = Math.signum(ny); vtx.tym = 0; vtx.tzm = 0;
             } else {
                 vtx.u = vtx.u_model = (nx / az + 1) / 2;
                 vtx.v = vtx.v_model = (ny / az + 1) / 2;
-                vtx.txm = Math.signum(nz); vtx.tym = 0; vtx.tzm = 0;
             }
         }
     }
@@ -128,9 +124,6 @@ public class Mesh {
             double nx = vtx.x_model / len, ny = vtx.y_model / len, nz = vtx.z_model / len;
             vtx.u = vtx.u_model = 0.5 + Math.atan2(nx, nz) / (2 * Math.PI);
             vtx.v = vtx.v_model = 0.5 - Math.asin(Math.max(-1.0, Math.min(1.0, ny))) / Math.PI;
-            double rxz = Math.sqrt(nx*nx + nz*nz);
-            if (rxz > 1e-10) { vtx.txm = nz/rxz; vtx.tym = 0; vtx.tzm = -nx/rxz; }
-            else              { vtx.txm = 1;       vtx.tym = 0; vtx.tzm = 0; }
         }
     }
 
@@ -143,7 +136,6 @@ public class Mesh {
             d.x_model = s.x_model; d.y_model = s.y_model; d.z_model = s.z_model;
             d.u = s.u; d.v = s.v; d.u_model = s.u_model; d.v_model = s.v_model;
             d.wClip = s.wClip;
-            d.txm = s.txm; d.tym = s.tym; d.tzm = s.tzm;
             copy.vertexList.add(d);
             vMap.put(s, d);
         }
@@ -152,7 +144,6 @@ public class Mesh {
             for (int i = 0; i < 3; i++) {
                 cf.normals[i][0]       = f.normals[i][0];       cf.normals[i][1]       = f.normals[i][1];       cf.normals[i][2]       = f.normals[i][2];
                 cf.normals_model[i][0] = f.normals_model[i][0]; cf.normals_model[i][1] = f.normals_model[i][1]; cf.normals_model[i][2] = f.normals_model[i][2];
-                cf.tangents[i][0]      = f.tangents[i][0];      cf.tangents[i][1]      = f.tangents[i][1];      cf.tangents[i][2]      = f.tangents[i][2];
             }
             copy.faces.add(cf);
         }
@@ -177,16 +168,7 @@ public class Mesh {
                     double diffuse = Math.max(0.0, light[0]*onx + light[1]*ony + light[2]*onz);
                     f.brightness[i] = 0.08 + diffuse * 0.92;
                 }
-                Vertex vt = cv[i];
-                double ttx = t[0][0]*vt.txm + t[1][0]*vt.tym + t[2][0]*vt.tzm;
-                double tty = t[0][1]*vt.txm + t[1][1]*vt.tym + t[2][1]*vt.tzm;
-                double ttz = t[0][2]*vt.txm + t[1][2]*vt.tym + t[2][2]*vt.tzm;
-                double tlen = Math.sqrt(ttx*ttx + tty*tty + ttz*ttz);
-                if (tlen > 1e-10) {
-                    f.tangents[i][0] = (float)(ttx / tlen);
-                    f.tangents[i][1] = (float)(tty / tlen);
-                    f.tangents[i][2] = (float)(ttz / tlen);
-                }
+
             }
             // Per-face view direction: centroid → camera (camera is at origin in view space)
             double cx = -(cv[0].xv + cv[1].xv + cv[2].xv) / 3.0;
