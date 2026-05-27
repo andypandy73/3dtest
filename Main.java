@@ -3,7 +3,6 @@ import java.awt.*;
 import java.awt.event.*;
 import java.awt.image.BufferStrategy;
 
-
 public class Main implements KeyListener, MouseListener, MouseMotionListener, MouseWheelListener {
 
     private static World myWorld;
