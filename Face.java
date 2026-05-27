@@ -8,21 +8,17 @@ public class Face {
     double[][] normals     = new double[3][3];
     double[]   brightness  = new double[3];
 
-    // Per-face view direction toward camera (set each frame by Mesh)
+    // View-space tangents per corner and per-face view direction (set each frame by Mesh)
+    float[][] tangents = new float[3][3];
     float fvx, fvy, fvz;
-
-    // ── Lighting constants ───────────────────────────────────────────────────
-    private static final float AMBIENT    = 0.05f;
-    private static final float DIFFUSE    = 1f;
-    private static final float SPEC_POWER = 500f;  // shininess — higher = tighter highlight
-    private static final float SPEC_SCALE = 2.0f;  // overall specular brightness
-    private static final float METALLIC   = 1.0f;  // 0 = white specular, 1 = albedo-tinted specular
 
     Face(Vertex a, Vertex b, Vertex c) {
         v0 = a; v1 = b; v2 = c;
     }
 
-    void Render(FrameBuffer fb, Texture texture, float lx, float ly, float lz) {
+    void Render(FrameBuffer fb, Texture texture,
+                Texture normalMap, Texture metallicMap, Texture roughnessMap,
+                float lx, float ly, float lz) {
         int[]   buffer = fb.pixels;
         float[] zArr   = fb.depth;
         int bufWidth  = fb.width;
@@ -56,6 +52,13 @@ public class Face {
         float n0x = (float)normals[0][0], n0y = (float)normals[0][1], n0z = (float)normals[0][2];
         float n1x = (float)normals[1][0], n1y = (float)normals[1][1], n1z = (float)normals[1][2];
         float n2x = (float)normals[2][0], n2y = (float)normals[2][1], n2z = (float)normals[2][2];
+
+        // Per-corner tangents
+        float t0x = tangents[0][0], t0y = tangents[0][1], t0z = tangents[0][2];
+        float t1x = tangents[1][0], t1y = tangents[1][1], t1z = tangents[1][2];
+        float t2x = tangents[2][0], t2y = tangents[2][1], t2z = tangents[2][2];
+
+        boolean hasPBR = (normalMap != null || metallicMap != null || roughnessMap != null);
 
         // UV seam correction
         double tu0 = v0.u, tu1 = v1.u, tu2 = v2.u;
@@ -103,30 +106,73 @@ public class Face {
                             float tv = (rowCross1 * tv0w + rowCross2 * tv1w + rowCross0 * tv2w) * invW;
                             int texColor = texture.sample(tu, tv);
 
-                            // Interpolate and normalise per-pixel normal (Phong shading)
-                            float nx = (rowCross1*n0x + rowCross2*n1x + rowCross0*n2x) * invTotal;
-                            float ny = (rowCross1*n0y + rowCross2*n1y + rowCross0*n2y) * invTotal;
-                            float nz = (rowCross1*n0z + rowCross2*n1z + rowCross0*n2z) * invTotal;
-                            float nlen = (float)Math.sqrt(nx*nx + ny*ny + nz*nz);
-                            if (nlen > 1e-6f) { nx /= nlen; ny /= nlen; nz /= nlen; }
+                            int ri, gi, bi;
+                            if (hasPBR) {
+                                // Interpolate normal
+                                float nx = (rowCross1*n0x + rowCross2*n1x + rowCross0*n2x) * invTotal;
+                                float ny = (rowCross1*n0y + rowCross2*n1y + rowCross0*n2y) * invTotal;
+                                float nz = (rowCross1*n0z + rowCross2*n1z + rowCross0*n2z) * invTotal;
+                                float nlen = (float)Math.sqrt(nx*nx + ny*ny + nz*nz);
+                                if (nlen > 1e-6f) { nx /= nlen; ny /= nlen; nz /= nlen; }
 
-                            // Lambert diffuse
-                            float nDotL = max(0f, nx*lx + ny*ly + nz*lz);
+                                // Interpolate tangent
+                                float tax = (rowCross1*t0x + rowCross2*t1x + rowCross0*t2x) * invTotal;
+                                float tay = (rowCross1*t0y + rowCross2*t1y + rowCross0*t2y) * invTotal;
+                                float taz = (rowCross1*t0z + rowCross2*t1z + rowCross0*t2z) * invTotal;
+                                float tlen = (float)Math.sqrt(tax*tax + tay*tay + taz*taz);
+                                if (tlen > 1e-6f) { tax /= tlen; tay /= tlen; taz /= tlen; }
 
-                            // Phong specular: reflect L around N, then dot with view direction
-                            float rx = 2f*nDotL*nx - lx;
-                            float ry = 2f*nDotL*ny - ly;
-                            float rz = 2f*nDotL*nz - lz;
-                            float spec = (float)Math.pow(max(0f, rx*fvx + ry*fvy + rz*fvz), SPEC_POWER) * SPEC_SCALE;
+                                // Apply normal map via TBN
+                                if (normalMap != null) {
+                                    int nc = normalMap.sample(tu, tv);
+                                    float tnx = ((nc >> 16) & 0xFF) / 127.5f - 1.0f;
+                                    float tny = ((nc >>  8) & 0xFF) / 127.5f - 1.0f;
+                                    float tnz = ( nc        & 0xFF) / 127.5f - 1.0f;
+                                    // Bitangent = cross(n, t)
+                                    float bx = ny*taz - nz*tay;
+                                    float by = nz*tax - nx*taz;
+                                    float bz = nx*tay - ny*tax;
+                                    float wnx = tnx*tax + tny*bx + tnz*nx;
+                                    float wny = tnx*tay + tny*by + tnz*ny;
+                                    float wnz = tnx*taz + tny*bz + tnz*nz;
+                                    float wlen = (float)Math.sqrt(wnx*wnx + wny*wny + wnz*wnz);
+                                    if (wlen > 1e-6f) { nx = wnx/wlen; ny = wny/wlen; nz = wnz/wlen; }
+                                }
 
-                            float ar = ((texColor >> 16) & 0xFF) / 255f;
-                            float ag = ((texColor >>  8) & 0xFF) / 255f;
-                            float ab = ( texColor        & 0xFF) / 255f;
+                                float diffuse = max(0f, nx*lx + ny*ly + nz*lz);
 
-                            float brt  = AMBIENT + nDotL * DIFFUSE;
-                            int ri = min(255, (int)((ar * brt + spec * (METALLIC*ar + (1f-METALLIC))) * 255f));
-                            int gi = min(255, (int)((ag * brt + spec * (METALLIC*ag + (1f-METALLIC))) * 255f));
-                            int bi = min(255, (int)((ab * brt + spec * (METALLIC*ab + (1f-METALLIC))) * 255f));
+                                float rough = roughnessMap != null
+                                    ? ((roughnessMap.sample(tu, tv) >> 16) & 0xFF) / 255f : 0.5f;
+                                float metal = metallicMap != null
+                                    ? ((metallicMap.sample(tu, tv) >> 16) & 0xFF) / 255f : 0.0f;
+
+                                // Blinn-Phong specular using per-face view direction
+                                float hx = lx + fvx, hy = ly + fvy, hz = lz + fvz;
+                                float hlen = (float)Math.sqrt(hx*hx + hy*hy + hz*hz);
+                                if (hlen > 1e-6f) { hx /= hlen; hy /= hlen; hz /= hlen; }
+                                float nDotH = max(0f, nx*hx + ny*hy + nz*hz);
+                                float shininess = 2f + (1f - rough) * 30f;
+                                float spec = (float)Math.pow(nDotH, shininess);
+
+                                float ar = ((texColor >> 16) & 0xFF) / 255f;
+                                float ag = ((texColor >>  8) & 0xFF) / 255f;
+                                float ab = ( texColor        & 0xFF) / 255f;
+
+                                float diffBrt = 0.24f + diffuse * 1.33f * (1f - metal * 0.7f);
+                                // Specular tinted by albedo for metals, white for dielectrics
+                                float specR = spec * (metal * ar + (1f - metal) * 0.04f) * 5f;
+                                float specG = spec * (metal * ag + (1f - metal) * 0.04f) * 5f;
+                                float specB = spec * (metal * ab + (1f - metal) * 0.04f) * 5f;
+
+                                ri = min(255, (int)((ar * diffBrt + specR) * 255f));
+                                gi = min(255, (int)((ag * diffBrt + specG) * 255f));
+                                bi = min(255, (int)((ab * diffBrt + specB) * 255f));
+                            } else {
+                                float brt = max(0.0f, min(1.0f, (rowCross1*b0 + rowCross2*b1 + rowCross0*b2) * invTotal));
+                                ri = (int)(((texColor >> 16) & 0xFF) * brt);
+                                gi = (int)(((texColor >>  8) & 0xFF) * brt);
+                                bi = (int)(( texColor        & 0xFF) * brt);
+                            }
                             buffer[idx] = (255 << 24) | (ri << 16) | (gi << 8) | bi;
                         }
                     }
