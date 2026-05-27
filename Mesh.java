@@ -80,10 +80,8 @@ public class Mesh {
         }
     }
 
-    public void Render(FrameBuffer fb, Texture texture,
-                       Texture normalMap, Texture metallicMap, Texture roughnessMap,
-                       float lx, float ly, float lz) {
-        faces.parallelStream().forEach(f -> f.Render(fb, texture, normalMap, metallicMap, roughnessMap, lx, ly, lz));
+    public void Render(FrameBuffer fb, Texture texture, Texture normalMap, float lx, float ly, float lz) {
+        faces.stream().forEach(f -> f.Render(fb, texture, normalMap, lx, ly, lz));
     }
 
     private void computePlanarUVs() {
@@ -130,13 +128,9 @@ public class Mesh {
             double nx = vtx.x_model / len, ny = vtx.y_model / len, nz = vtx.z_model / len;
             vtx.u = vtx.u_model = 0.5 + Math.atan2(nx, nz) / (2 * Math.PI);
             vtx.v = vtx.v_model = 0.5 - Math.asin(Math.max(-1.0, Math.min(1.0, ny))) / Math.PI;
-            // Tangent = azimuthal direction = d/dφ of (sin(θ)sin(φ), cos(θ), sin(θ)cos(φ)) = (nz, 0, -nx) normalized
             double rxz = Math.sqrt(nx*nx + nz*nz);
-            if (rxz > 1e-10) {
-                vtx.txm = nz / rxz; vtx.tym = 0; vtx.tzm = -nx / rxz;
-            } else {
-                vtx.txm = 1; vtx.tym = 0; vtx.tzm = 0;
-            }
+            if (rxz > 1e-10) { vtx.txm = nz/rxz; vtx.tym = 0; vtx.tzm = -nx/rxz; }
+            else              { vtx.txm = 1;       vtx.tym = 0; vtx.tzm = 0; }
         }
     }
 
@@ -183,8 +177,6 @@ public class Mesh {
                     double diffuse = Math.max(0.0, light[0]*onx + light[1]*ony + light[2]*onz);
                     f.brightness[i] = 0.08 + diffuse * 0.92;
                 }
-
-                // Transform tangent using the 3x3 rotation part of the matrix
                 Vertex vt = cv[i];
                 double ttx = t[0][0]*vt.txm + t[1][0]*vt.tym + t[2][0]*vt.tzm;
                 double tty = t[0][1]*vt.txm + t[1][1]*vt.tym + t[2][1]*vt.tzm;

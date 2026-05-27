@@ -1,7 +1,7 @@
 public class Actor {
     public Mesh model;
     public Texture texture;
-    public Texture normalMap, metallicMap, roughnessMap;
+    public Texture normalMap;
     public double[] location;
     public double[] rotation;
     public double[] scale;
