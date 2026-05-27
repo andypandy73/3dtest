@@ -30,6 +30,13 @@ public class World {
             return Double.compare(da, db);
         });
 
+        // Light direction in view space is the same for all actors
+        double[] ld = LIGHT_DIR;
+        float ltx = (float)(camera[0][0]*ld[0] + camera[1][0]*ld[1] + camera[2][0]*ld[2]);
+        float lty = (float)(camera[0][1]*ld[0] + camera[1][1]*ld[1] + camera[2][1]*ld[2]);
+        float ltz = (float)(camera[0][2]*ld[0] + camera[1][2]*ld[1] + camera[2][2]*ld[2]);
+
+        // Parallel pass: transform vertices/normals — no framebuffer writes
         actors.parallelStream().forEach(a -> {
             double[][] scale    = new double[4][4];
             double[][] rotation = new double[4][4];
@@ -45,16 +52,13 @@ public class World {
             Utils.multiplyMatrices(tmp2,  tmp1,     trans);
             Utils.multiplyMatrices(matMV, tmp2,     camera);
 
-            Mesh m = a.model;
-            m.applyModelView(matMV, LIGHT_DIR);
-            m.applyProjection(projection);
-            // Transform light direction into the same space as the transformed normals
-            double[] ld = LIGHT_DIR;
-            double ltx = camera[0][0]*ld[0] + camera[1][0]*ld[1] + camera[2][0]*ld[2];
-            double lty = camera[0][1]*ld[0] + camera[1][1]*ld[1] + camera[2][1]*ld[2];
-            double ltz = camera[0][2]*ld[0] + camera[1][2]*ld[1] + camera[2][2]*ld[2];
-            m.Render(fb, a.texture, a.normalMap, a.metallicMap, a.roughnessMap,
-                     (float)ltx, (float)lty, (float)ltz);
+            a.model.applyModelView(matMV, LIGHT_DIR);
+            a.model.applyProjection(projection);
         });
+
+        // Serial pass: rasterize to framebuffer — no race on pixels/depth
+        for (Actor a : actors) {
+            a.model.Render(fb, a.texture, a.normalMap, a.metallicMap, a.roughnessMap, ltx, lty, ltz);
+        }
     }
 }
