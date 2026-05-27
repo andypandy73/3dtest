@@ -1,3 +1,5 @@
+// Phong shading with norma, roughness and metalic maps
+
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
